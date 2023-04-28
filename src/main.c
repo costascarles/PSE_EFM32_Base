@@ -90,8 +90,18 @@ int main(void)
   //xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
 
   my_i2c_init(0xD7);
-  uint8_t valor;
-  my_i2c_read(0x0F,&valor);
+  uint8_t WIAM;
+  my_i2c_read(0x0F,&WIAM);
+  if(WIAM == 0x68){
+	 uint8_t valx_l,valx_h;
+	 while(1){
+	 my_i2c_read(0x18,&valx_l);
+	 my_i2c_read(0x19,&valx_h);
+	 printf("VALOR valx_l: %d\n", valx_l);
+	 printf("VALOR valx_h: %d\n", valx_h);
+	 }
+
+  }
 
 
 
@@ -100,3 +110,4 @@ int main(void)
 
   return 0;
 }
+

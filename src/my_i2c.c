@@ -12,6 +12,13 @@
 
 static SemaphoreHandle_t i2c_semaphore = NULL;
 static uint8_t device_addr;
+int _write(int file, const char *ptr, int len) {
+    int x;
+    for (x = 0; x < len; x++) {
+       ITM_SendChar (*ptr++);
+    }
+    return (len);
+}
 
 void my_i2c_init(uint8_t addr)
 {
