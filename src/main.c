@@ -89,8 +89,12 @@ int main(void)
  // xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, &parametersToTask1, TASK_PRIORITY, NULL);
   //xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
 
-  my_i2c_init(000);
-  my_i2c_test();
+  my_i2c_init(0xD7);
+  uint8_t valor;
+  my_i2c_read(0x0F,&valor);
+
+
+
   /*Start FreeRTOS Scheduler*/
   vTaskStartScheduler();
 
