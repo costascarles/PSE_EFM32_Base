@@ -22,6 +22,8 @@
 QueueHandle_t colaGiroX;
 QueueHandle_t colaGiroY;
 
+QueueHandle_t colaAccX;
+QueueHandle_t colaAccY;
 /* Structure with parameters for LedBlink */
 typedef struct {
   /* Delay between blink of led */
@@ -71,14 +73,44 @@ static void readGiroY(void *pParameters){
     xQueueSend(colaGiroY, &y, portMAX_DELAY);
   }
 }
+
+static void readAX(void *pParameters){
+  uint8_t valx_l, valx_h;
+  uint16_t x;
+  while(1){
+	 my_i2c_write(0x20,1 << 6);
+	 my_i2c_read(0x28,&valx_l);
+	 my_i2c_read(0x29,&valx_h);
+	 x = (valx_h << 8) | valx_l;
+	 xQueueSend(colaAccX, &x, portMAX_DELAY);
+  }
+}
+static void readAY(void *pParameters){
+  uint8_t valy_l, valy_h;
+  uint16_t y;
+  while(1){
+	 my_i2c_write(0x20,1 << 6);
+	 my_i2c_read(0x2A,&valy_l);
+	 my_i2c_read(0x2B,&valy_h);
+	 y = (valy_h << 8) | valy_l;
+	 xQueueSend(colaAccY, &y, portMAX_DELAY);
+  }
+}
 static void printTOT(void *pParameters){
 while(1){
 	  uint16_t x;
+	  uint16_t Ax;
+	  uint16_t Ay;
 	  uint16_t y;
 	 xQueueReceive(colaGiroX, &x, portMAX_DELAY);
 	 xQueueReceive(colaGiroY, &y, portMAX_DELAY);
+	 xQueueReceive(colaAccX, &Ax, portMAX_DELAY);
+	 xQueueReceive(colaAccY, &Ay, portMAX_DELAY);
 	 printf("VALOR valor X: %d\n", x);
 	 printf("VALOR valor Y: %d\n", y);
+
+	 printf("VALOR valor Acc X: %d\n", Ax);
+	 printf("VALOR valor Acc Y: %d\n", Ay);
 	 }
 }
 
@@ -118,8 +150,13 @@ int main(void)
   if(WIAM == 0x68){
     colaGiroX = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
     colaGiroY = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
+    colaAccX = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
+    colaAccY = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
     xTaskCreate(readGiroX, (const char *) "readGiroX2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
     xTaskCreate(readGiroY, (const char *) "readGiroY2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+    xTaskCreate(readAX, (const char *) "readAX2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+    xTaskCreate(readAY, (const char *) "readAY2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+
     xTaskCreate(printTOT, (const char *) "printTOTX2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
     /*Start FreeRTOS Scheduler*/
     vTaskStartScheduler();
