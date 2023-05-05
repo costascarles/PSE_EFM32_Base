@@ -1,20 +1,3 @@
-/***************************************************************************//**
- * @file
- * @brief FreeRTOS Blink Demo for Energy Micro EFM32GG_STK3700 Starter Kit
- *******************************************************************************
- * # License
- * <b>Copyright 2018 Silicon Laboratories Inc. www.silabs.com</b>
- *******************************************************************************
- *
- * The licensor of this software is Silicon Laboratories Inc. Your use of this
- * software is governed by the terms of Silicon Labs Master Software License
- * Agreement (MSLA) available at
- * www.silabs.com/about-us/legal/master-software-license-agreement. This
- * software is distributed to you in Source Code format and is governed by the
- * sections of the MSLA applicable to Source Code.
- *
- ******************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -34,11 +17,15 @@
 
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
+#define COLA_TAMANO 5
+
+QueueHandle_t colaGiroX;
+QueueHandle_t colaGiroY;
 
 /* Structure with parameters for LedBlink */
 typedef struct {
   /* Delay between blink of led */
-  portTickType delay;
+  TickType_t delay;
   /* Number of led */
   int          ledNo;
 } TaskParams_t;
@@ -50,12 +37,49 @@ typedef struct {
 static void LedBlink(void *pParameters)
 {
   TaskParams_t     * pData = (TaskParams_t*) pParameters;
-  const portTickType delay = pData->delay;
+  const TickType_t delay = pData->delay;
 
   for (;; ) {
     BSP_LedToggle(pData->ledNo);
     vTaskDelay(delay);
   }
+}
+
+static void readGiroX(void *pParameters){
+  uint8_t valx_l, valx_h;
+  uint16_t x;
+  while(1){
+    // Init Giro
+    my_i2c_write(0x10,0x20);
+    // Read X
+    my_i2c_read(0x18, &valx_l);
+    my_i2c_read(0x19, &valx_h);
+    x = (valx_h << 8) | valx_l;
+    xQueueSend(colaGiroX, &x, portMAX_DELAY);
+  }
+}
+static void readGiroY(void *pParameters){
+  uint8_t valy_l, valy_h;
+  uint16_t y;
+  while(1){
+    // Init Giro
+    my_i2c_write(0x10,0x20);
+    // Read X
+    my_i2c_read(0x1A, &valy_l);
+    my_i2c_read(0x1B, &valy_h);
+    y = (valy_h << 8) | valy_l;
+    xQueueSend(colaGiroY, &y, portMAX_DELAY);
+  }
+}
+static void printTOT(void *pParameters){
+while(1){
+	  uint16_t x;
+	  uint16_t y;
+	 xQueueReceive(colaGiroX, &x, portMAX_DELAY);
+	 xQueueReceive(colaGiroY, &y, portMAX_DELAY);
+	 printf("VALOR valor X: %d\n", x);
+	 printf("VALOR valor Y: %d\n", y);
+	 }
 }
 
 /***************************************************************************//**
@@ -81,33 +105,31 @@ int main(void)
   SLEEP_SleepBlockBegin((SLEEP_EnergyMode_t)(configSLEEP_MODE + 1));
 #endif
 
-  /* Parameters value for taks*/
-  //static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
- // static TaskParams_t parametersToTask2 = { pdMS_TO_TICKS(500), 1 };
+  /* Parameters value for tasks*/
+ // static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
+  static TaskParams_t parametersToTask2 = { pdMS_TO_TICKS(500), 1 };
 
-  /*Create two task for blinking leds*/
+  /* Create two tasks for blinking leds*/
  // xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, &parametersToTask1, TASK_PRIORITY, NULL);
-  //xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
 
   my_i2c_init(0xD7);
   uint8_t WIAM;
-  my_i2c_read(0x0F,&WIAM);
+  my_i2c_read(0x0F, &WIAM);
   if(WIAM == 0x68){
-	 uint8_t valx_l,valx_h;
-	 while(1){
-	 my_i2c_read(0x18,&valx_l);
-	 my_i2c_read(0x19,&valx_h);
-	 printf("VALOR valx_l: %d\n", valx_l);
-	 printf("VALOR valx_h: %d\n", valx_h);
-	 }
-
-  }
-
+    colaGiroX = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
+    colaGiroY = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
+    xTaskCreate(readGiroX, (const char *) "readGiroX2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+    xTaskCreate(readGiroY, (const char *) "readGiroY2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+    xTaskCreate(printTOT, (const char *) "printTOTX2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+    /*Start FreeRTOS Scheduler*/
+    vTaskStartScheduler();
+   }
 
 
-  /*Start FreeRTOS Scheduler*/
-  vTaskStartScheduler();
 
-  return 0;
-}
+
+
+   return 0;
+ }
+
 
