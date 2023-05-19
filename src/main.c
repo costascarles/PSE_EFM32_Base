@@ -31,6 +31,7 @@ QueueHandle_t direction;
 /* Structure with parameters for LedBlink */
 
 
+
 static void readGiroX(){
   int8_t valx_l, valx_h;
   int16_t x;
@@ -59,14 +60,18 @@ static void readGiroY(){
 }
 
 static void readAX(){
-  int8_t valx_l, valx_h;
+  uint8_t valx_l, valx_h;
   int16_t x;
   while(1){
 	 my_i2c_write(0x20,1 << 6);
 	 my_i2c_read(0x28,&valx_l);
 	 my_i2c_read(0x29,&valx_h);
 	 x = (valx_h << 8) | valx_l;
-	 xQueueSend(colaAccX, &x, portMAX_DELAY);
+	 //xQueueSend(colaAccX, &x, portMAX_DELAY);
+	 if(x > 4000){
+
+	 }
+	 printf("VALOR valor Y: %d\n", x);
   }
 }
 static void readAY(){
@@ -90,14 +95,10 @@ static void calcDirection(){
 		xQueueReceive(colaGiroY, &y, portMAX_DELAY);
 		if(y<0){
 			dir = 0;
-			//printf("Left\n");
 		}else{
 			dir=1;
-			//printf("Right\n");
 		}
 		xQueueSend(direction, &dir, portMAX_DELAY);
-		//printf("VALOR valor X: %d\n", x);
-		//printf("VALOR valor Y: %d\n", y);
 	}
 }
 
@@ -111,15 +112,15 @@ while(1){
 	 if(game == 0){
 		  num = (rand() % (1 - 0 + 1)) + 0;
 		 if(num==1){
-			 printf("Dreta\n");
+			printf("Dreta\n");
 		 }else{
-			 printf("Esquerra\n");
+			printf("Esquerra\n");
 		 }
 		 game=1;
 	 }
 	 if(game == 1){
 		 if(dir==num){
-			 printf("Molt Bee!!!\n");
+			printf("Molt Bee!!!\n");
 			 game=0;
 		 }
 
@@ -127,12 +128,25 @@ while(1){
 
 	 }
 }
+void GPIO_ODD_IRQHandler(void) {
+ uint32_t aux;
+
+ aux = GPIO_IntGet();
+
+ /* clear flags */
+ GPIO_IntClear(aux);
+
+ //GPIO_PinOutSet(gpioPortD, 7);
+ BSP_LedSet(1);
+
+}
 
 /***************************************************************************//**
  * @brief  Main function
  ******************************************************************************/
 int main(void)
 {
+
   /* Chip errata */
   CHIP_Init();
   /* If first word of user data page is non-zero, enable Energy Profiler trace */
@@ -140,9 +154,12 @@ int main(void)
 
   /* Initialize LED driver */
   BSP_LedsInit();
+  GPIO_PinModeSet(gpioPortB, 9, gpioModeInput, 0); /* Boto 0 */
+  GPIO_IntConfig(gpioPortB, 9, false, true, true);
+  NVIC_EnableIRQ(GPIO_ODD_IRQn);
   /* Setting state of leds*/
-  BSP_LedSet(0);
-  BSP_LedSet(1);
+  //BSP_LedSet(0);
+ // BSP_LedSet(1);
 
   /* Initialize SLEEP driver, no calbacks are used */
   SLEEP_Init(NULL, NULL);
@@ -162,6 +179,9 @@ int main(void)
   uint8_t WIAM;
   my_i2c_read(0x0F, &WIAM);
   if(WIAM == 0x68){
+
+	 /* Set LED off */
+	GPIO_PinOutClear(gpioPortD, 7);
 	direction = xQueueCreate(COLA_TAMANO, sizeof(uint8_t));
     colaGiroY = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
     //colaAccX = xQueueCreate(COLA_TAMANO, sizeof(uint16_t));
